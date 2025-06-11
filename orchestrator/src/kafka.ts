@@ -1,0 +1,75 @@
+import { Kafka } from 'kafkajs';
+import Order from './model/order';
+
+export const KafkaConsumer = () => {
+  const kafka = new Kafka({
+    clientId: 'orchestrator',
+    brokers: ['kafka:9092'],
+  });
+
+  const consumer = kafka.consumer({ groupId: 'orchestrator-group' });
+
+  const run = async () => {
+    await consumer.connect();
+    await consumer.subscribe({ topic: 'order-status', fromBeginning: true });
+
+    console.log('Orchestrator is listening to Kafka topic: order-status');
+
+    await consumer.run({
+      eachMessage: async ({ topic, partition, message }) => {
+        const statusUpdate = JSON.parse(message.value?.toString() || '{}');
+        const { orderId, status, reason } = statusUpdate;
+
+        console.log(`Received status update for order ${orderId}: ${status}`);
+
+        // Update order status in MongoDB
+        await Order.findByIdAndUpdate(orderId, { status }, { new: true });
+
+        if (reason) {
+          console.log(`Reason for rejection: ${reason}`);
+        }
+      },
+    });
+  };
+
+  run().catch(console.error);
+};
+
+export const KafkaProducer = () => {
+  const kafka = new Kafka({
+    clientId: 'orchestrator',
+    brokers: ['kafka:9092'],
+  });
+
+  const producer = kafka.producer();
+
+  const run = async () => {
+    await producer.connect();
+    console.log('KafkaProducer is ready to send messages');
+  };
+
+  const sendMessage = async (topic: string, message: object) => {
+    try {
+      await producer.send({
+        topic,
+        messages: [
+          {
+            value: JSON.stringify(message),
+          },
+        ],
+      });
+      console.log(`Message sent to topic ${topic}:`, message);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  const disconnect = async () => {
+    await producer.disconnect();
+    console.log('KafkaProducer disconnected');
+  };
+
+  run().catch(console.error);
+
+  return producer;
+};
