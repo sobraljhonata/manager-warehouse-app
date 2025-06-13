@@ -10,26 +10,43 @@ export const KafkaConsumer = () => {
   const consumer = kafka.consumer({ groupId: 'orchestrator-group' });
 
   const run = async () => {
-    await consumer.connect();
-    await consumer.subscribe({ topic: 'order-status', fromBeginning: true });
+    try {
+      await consumer.connect();
+      await consumer.subscribe({ topic: 'order-status', fromBeginning: true });
 
-    console.log('Orchestrator is listening to Kafka topic: order-status');
+      console.log('Orchestrator is listening to Kafka topic: order-status');
 
-    await consumer.run({
-      eachMessage: async ({ topic, partition, message }) => {
-        const statusUpdate = JSON.parse(message.value?.toString() || '{}');
-        const { orderId, status, reason } = statusUpdate;
+      await consumer.run({
+        eachMessage: async ({ topic, partition, message }) => {
+          try {
+            const statusUpdate = JSON.parse(message.value?.toString() || '{}');
+            const { orderId, status, reason } = statusUpdate;
 
-        console.log(`Received status update for order ${orderId}: ${status}`);
+            console.log(`Received status update for order ${orderId}: ${status}`);
 
-        // Update order status in MongoDB
-        await Order.findByIdAndUpdate(orderId, { status }, { new: true });
+            // Update order status in MongoDB
+            const updatedOrder = await Order.findByIdAndUpdate(
+              orderId,
+              { status },
+              { new: true }
+            );
 
-        if (reason) {
-          console.log(`Reason for rejection: ${reason}`);
-        }
-      },
-    });
+            if (!updatedOrder) {
+              console.error(`Order ${orderId} not found`);
+              return;
+            }
+
+            if (reason) {
+              console.log(`Reason for rejection: ${reason}`);
+            }
+          } catch (error) {
+            console.error('Error processing message:', error);
+          }
+        },
+      });
+    } catch (error) {
+      console.error('Error in Kafka consumer:', error);
+    }
   };
 
   run().catch(console.error);
