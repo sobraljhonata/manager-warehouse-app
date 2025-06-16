@@ -1,0 +1,1 @@
+// Arquivo de setup vazio, pois não usamos mais TypeORM 

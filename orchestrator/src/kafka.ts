@@ -52,7 +52,7 @@ export const KafkaConsumer = () => {
   run().catch(console.error);
 };
 
-export const KafkaProducer = () => {
+export const KafkaProducer = async () => {
   const kafka = new Kafka({
     clientId: 'orchestrator',
     brokers: ['kafka:9092'],
@@ -60,33 +60,12 @@ export const KafkaProducer = () => {
 
   const producer = kafka.producer();
 
-  const run = async () => {
+  try {
     await producer.connect();
     console.log('KafkaProducer is ready to send messages');
-  };
-
-  const sendMessage = async (topic: string, message: object) => {
-    try {
-      await producer.send({
-        topic,
-        messages: [
-          {
-            value: JSON.stringify(message),
-          },
-        ],
-      });
-      console.log(`Message sent to topic ${topic}:`, message);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
-  };
-
-  const disconnect = async () => {
-    await producer.disconnect();
-    console.log('KafkaProducer disconnected');
-  };
-
-  run().catch(console.error);
-
-  return producer;
+    return producer;
+  } catch (error) {
+    console.error('Error connecting to Kafka:', error);
+    throw error;
+  }
 };

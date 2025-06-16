@@ -12,34 +12,35 @@ export async function startConsumer() {
   await consumer.connect();
   await consumer.subscribe({ topic: 'order-created', fromBeginning: true });
 
-  await consumer.run({
-    eachMessage: async ({ topic, partition, message }) => {
-      if (topic === 'order-created') {
-        const order = JSON.parse(message.value?.toString() || '{}');
-        const Stock = mongoose.model('Stock');
+  const messageHandler = async ({ topic, partition, message }: any) => {
+    if (topic === 'order-created') {
+      const order = JSON.parse(message.value?.toString() || '{}');
+      const Stock = mongoose.model('Stock');
 
-        try {
-          const stock = await Stock.findOne({ productId: order.productId });
-          
-          if (!stock) {
-            // Produto não encontrado
-            return;
-          }
-
-          const updatedStock = await Stock.findOneAndUpdate(
-            { productId: order.productId, quantity: { $gte: order.quantity } },
-            { $inc: { quantity: -order.quantity } },
-            { new: true }
-          );
-
-          if (!updatedStock) {
-            // Estoque insuficiente
-            return;
-          }
-        } catch (error) {
-          console.error('Error processing order:', error);
+      try {
+        const stock = await Stock.findOne({ productId: order.productId });
+        
+        if (!stock) {
+          // Produto não encontrado
+          return;
         }
+
+        const updatedStock = await Stock.findOneAndUpdate(
+          { productId: order.productId, quantity: { $gte: order.quantity } },
+          { $inc: { quantity: -order.quantity } },
+          { new: true }
+        );
+
+        if (!updatedStock) {
+          // Estoque insuficiente
+          return;
+        }
+      } catch (error) {
+        console.error('Error processing order:', error);
       }
-    },
-  });
+    }
+  };
+
+  await consumer.run({ eachMessage: messageHandler });
+  return messageHandler;
 } 

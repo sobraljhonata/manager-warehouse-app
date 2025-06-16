@@ -4,10 +4,10 @@ import { startConsumer } from '../../src/kafka/consumer';
 
 jest.mock('mongoose', () => ({
   connect: jest.fn(),
-  model: jest.fn().mockReturnValue({
+  model: jest.fn().mockImplementation((name) => ({
     findOne: jest.fn(),
     findOneAndUpdate: jest.fn(),
-  }),
+  })),
   Schema: jest.fn().mockImplementation(() => ({
     set: jest.fn().mockReturnThis(),
   })),
@@ -18,7 +18,9 @@ jest.mock('kafkajs', () => ({
     consumer: jest.fn().mockReturnValue({
       connect: jest.fn(),
       subscribe: jest.fn(),
-      run: jest.fn(),
+      run: jest.fn().mockImplementation(({ eachMessage }) => {
+        return Promise.resolve(eachMessage);
+      }),
     }),
     producer: jest.fn().mockReturnValue({
       connect: jest.fn(),
@@ -34,13 +36,18 @@ describe('Kafka Consumer', () => {
     subscribe: jest.Mock;
     run: jest.Mock;
   };
+  let messageHandler: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    messageHandler = undefined;
     mockConsumer = {
       connect: jest.fn(),
       subscribe: jest.fn(),
-      run: jest.fn(),
+      run: jest.fn().mockImplementation(({ eachMessage }) => {
+        messageHandler = eachMessage;
+        return Promise.resolve();
+      }),
     };
     (Kafka as jest.Mock).mockImplementation(() => ({
       consumer: () => mockConsumer,
@@ -64,20 +71,18 @@ describe('Kafka Consumer', () => {
       quantity: 10,
     };
 
-    (mongoose.model as jest.Mock).mockReturnValue({
+    const mockModel = {
       findOne: jest.fn().mockResolvedValue(mockStock),
       findOneAndUpdate: jest.fn().mockResolvedValue({ ...mockStock, quantity: 5 }),
-    });
+    };
 
-    let messageHandler: any;
-    mockConsumer.run.mockImplementation(({ eachMessage }) => {
-      messageHandler = eachMessage;
-      return Promise.resolve();
-    });
+    (mongoose.model as jest.Mock).mockReturnValue(mockModel);
 
-    await startConsumer();
+    const handler = await startConsumer();
+    expect(handler).toBeDefined();
+    expect(typeof handler).toBe('function');
 
-    await messageHandler({
+    await handler({
       topic: 'order-created',
       partition: 0,
       message: {
@@ -88,9 +93,9 @@ describe('Kafka Consumer', () => {
     // Aguarda um pequeno delay para garantir que as promessas sejam resolvidas
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    expect(mongoose.model).toHaveBeenCalledWith('Stock', expect.any(Object));
-    expect(mongoose.model('Stock').findOne).toHaveBeenCalledWith({ productId: '456' });
-    expect(mongoose.model('Stock').findOneAndUpdate).toHaveBeenCalledWith(
+    expect(mongoose.model).toHaveBeenCalledWith('Stock');
+    expect(mockModel.findOne).toHaveBeenCalledWith({ productId: '456' });
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
       { productId: '456', quantity: { $gte: 5 } },
       { $inc: { quantity: -5 } },
       { new: true }
@@ -109,20 +114,18 @@ describe('Kafka Consumer', () => {
       quantity: 10,
     };
 
-    (mongoose.model as jest.Mock).mockReturnValue({
+    const mockModel = {
       findOne: jest.fn().mockResolvedValue(mockStock),
       findOneAndUpdate: jest.fn().mockResolvedValue(null),
-    });
+    };
 
-    let messageHandler: any;
-    mockConsumer.run.mockImplementation(({ eachMessage }) => {
-      messageHandler = eachMessage;
-      return Promise.resolve();
-    });
+    (mongoose.model as jest.Mock).mockReturnValue(mockModel);
 
-    await startConsumer();
+    const handler = await startConsumer();
+    expect(handler).toBeDefined();
+    expect(typeof handler).toBe('function');
 
-    await messageHandler({
+    await handler({
       topic: 'order-created',
       partition: 0,
       message: {
@@ -133,9 +136,9 @@ describe('Kafka Consumer', () => {
     // Aguarda um pequeno delay para garantir que as promessas sejam resolvidas
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    expect(mongoose.model).toHaveBeenCalledWith('Stock', expect.any(Object));
-    expect(mongoose.model('Stock').findOne).toHaveBeenCalledWith({ productId: '456' });
-    expect(mongoose.model('Stock').findOneAndUpdate).toHaveBeenCalledWith(
+    expect(mongoose.model).toHaveBeenCalledWith('Stock');
+    expect(mockModel.findOne).toHaveBeenCalledWith({ productId: '456' });
+    expect(mockModel.findOneAndUpdate).toHaveBeenCalledWith(
       { productId: '456', quantity: { $gte: 15 } },
       { $inc: { quantity: -15 } },
       { new: true }
@@ -149,20 +152,18 @@ describe('Kafka Consumer', () => {
       quantity: 5,
     };
 
-    (mongoose.model as jest.Mock).mockReturnValue({
+    const mockModel = {
       findOne: jest.fn().mockResolvedValue(null),
       findOneAndUpdate: jest.fn(),
-    });
+    };
 
-    let messageHandler: any;
-    mockConsumer.run.mockImplementation(({ eachMessage }) => {
-      messageHandler = eachMessage;
-      return Promise.resolve();
-    });
+    (mongoose.model as jest.Mock).mockReturnValue(mockModel);
 
-    await startConsumer();
+    const handler = await startConsumer();
+    expect(handler).toBeDefined();
+    expect(typeof handler).toBe('function');
 
-    await messageHandler({
+    await handler({
       topic: 'order-created',
       partition: 0,
       message: {
@@ -173,8 +174,8 @@ describe('Kafka Consumer', () => {
     // Aguarda um pequeno delay para garantir que as promessas sejam resolvidas
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    expect(mongoose.model).toHaveBeenCalledWith('Stock', expect.any(Object));
-    expect(mongoose.model('Stock').findOne).toHaveBeenCalledWith({ productId: '456' });
-    expect(mongoose.model('Stock').findOneAndUpdate).not.toHaveBeenCalled();
+    expect(mongoose.model).toHaveBeenCalledWith('Stock');
+    expect(mockModel.findOne).toHaveBeenCalledWith({ productId: '456' });
+    expect(mockModel.findOneAndUpdate).not.toHaveBeenCalled();
   });
 }); 
