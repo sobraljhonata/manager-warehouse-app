@@ -17,7 +17,7 @@ export const KafkaConsumer = () => {
       console.log('Orchestrator is listening to Kafka topic: order-status');
 
       await consumer.run({
-        eachMessage: async ({ topic, partition, message }) => {
+        eachMessage: async ({ message }) => {
           try {
             const statusUpdate = JSON.parse(message.value?.toString() || '{}');
             const { orderId, status, reason } = statusUpdate;

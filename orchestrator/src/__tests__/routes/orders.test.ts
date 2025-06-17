@@ -1,6 +1,5 @@
 import request from 'supertest';
 import express from 'express';
-import { Kafka } from 'kafkajs';
 import Order from '../../model/order';
 import ordersRouter from '../../routes/orders';
 

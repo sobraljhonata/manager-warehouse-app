@@ -11,7 +11,7 @@ app.use(express.json());
 const ediService = new EdiService();
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_, res) => {
   res.json({ status: 'ok' });
 });
 
@@ -31,7 +31,7 @@ const run = async () => {
     console.log('EDI Service is listening to Kafka topic: edi-processing');
 
     await consumer.run({
-      eachMessage: async ({ topic, partition, message }) => {
+      eachMessage: async ({ message }) => {
         try {
           const { type, content } = JSON.parse(message.value?.toString() || '{}');
           

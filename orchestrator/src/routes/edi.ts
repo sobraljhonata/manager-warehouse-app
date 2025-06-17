@@ -12,31 +12,36 @@ async function getProducer() {
 }
 
 const processHandler: RequestHandler = async (req, res) => {
-  const { content } = req.body;
-  if (!content) {
-    res.status(400).json({ error: 'No EDI content provided' });
-    return;
-  }
-
   try {
-    const kafkaProducer = await getProducer();
-    await kafkaProducer.send({
-      topic: 'edi-processing',
-      messages: [
-        {
-          value: JSON.stringify({
-            type: 'EDI_PROCESSING_REQUEST',
-            content,
-          }),
-        },
-      ],
-    });
+    const ediContent = req.body?.content;
+    if (!ediContent) {
+      res.status(400).json({ error: 'No EDI content provided' });
+      return;
+    }
 
-    res.status(200).json({
-      message: 'EDI file sent for processing',
-      status: 'PENDING',
-    });
-  } catch (error) {
+    const kafkaProducer = await getProducer();
+    try {
+      await kafkaProducer.send({
+        topic: 'edi-processing',
+        messages: [
+          {
+            value: JSON.stringify({
+              type: 'EDI_PROCESSING_REQUEST',
+              content: ediContent,
+            }),
+          },
+        ],
+      });
+
+      res.status(200).json({
+        message: 'EDI file sent for processing',
+        status: 'PENDING',
+      });
+    } catch (error: any) {
+      console.error('Error sending message to Kafka:', error);
+      res.status(500).json({ error: 'Failed to process EDI file' });
+    }
+  } catch (error: any) {
     console.error('Error in EDI processing:', error);
     res.status(500).json({ error: 'Failed to process EDI file' });
   }

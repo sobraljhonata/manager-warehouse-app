@@ -1,6 +1,5 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-import { Kafka } from 'kafkajs';
 
 let mongod: MongoMemoryServer;
 
