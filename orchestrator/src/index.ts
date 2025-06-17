@@ -4,6 +4,7 @@ import { KafkaProducer, KafkaConsumer } from './kafka';
 import ordersRouter from './routes/orders';
 import { config } from 'dotenv';
 import ediRoutes from './routes/edi';
+import { connectMongoDB } from './config/mongodb';
 
 config();
 
@@ -35,6 +36,7 @@ producer.then(async (kafkaProducer) => {
   });
   
   // Start Server
+  await connectMongoDB();
   app.listen(PORT, () => {
     console.log(`Orchestrator running on port ${PORT}`);
   });

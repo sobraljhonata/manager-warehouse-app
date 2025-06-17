@@ -1,23 +1,25 @@
 import express from 'express';
-import { bodyParser } from './middlewares/bodyParser';
-import { contentType } from './middlewares/contentType';
-import { cors } from './middlewares/cors';
-import ediRoutes from './routes/edi';
+import cors from 'cors';
+import { errorHandler } from './main/middlewares/error-handler';
+import ediRoutes from './main/routes/edi.routes';
+import { makeKafkaAdapter } from './main/factories/kafka-adapter-factory';
 
 const app = express();
 
 // Middlewares
-app.use(cors);
-app.use(bodyParser);
-app.use(contentType);
+app.use(cors());
+app.use(express.json());
+
+// Initialize Kafka
+const kafkaAdapter = makeKafkaAdapter();
+kafkaAdapter.connect().catch(console.error);
 
 // Routes
-app.use('/edi', ediRoutes);
+app.use('/api', ediRoutes);
 
-// Error handling middleware
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ error: err.message });
+// Error handling
+app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  errorHandler(err, req, res, next);
 });
 
 export default app; 
