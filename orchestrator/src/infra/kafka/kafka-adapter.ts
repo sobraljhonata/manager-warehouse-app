@@ -1,5 +1,5 @@
-import { Kafka, Producer, Consumer, EachMessagePayload } from 'kafkajs';
-import { KafkaConfig } from '../../config/kafka';
+import { Kafka } from 'kafkajs';
+import type { KafkaConfig } from '../../config/kafka';
 
 export interface IKafkaAdapter {
   connect(): Promise<void>;
@@ -10,8 +10,8 @@ export interface IKafkaAdapter {
 
 export class KafkaAdapter implements IKafkaAdapter {
   private kafka: Kafka;
-  private producer: Producer;
-  private consumer: Consumer;
+  private producer: ReturnType<Kafka['producer']>;
+  private consumer: ReturnType<Kafka['consumer']>;
   private isConnected: boolean = false;
 
   constructor(config: KafkaConfig) {
@@ -34,7 +34,7 @@ export class KafkaAdapter implements IKafkaAdapter {
   async disconnect(): Promise<void> {
     if (this.isConnected) {
       await this.producer.disconnect();
-      await this.consumer.disconnect();
+      await (this.consumer as any).disconnect();
       this.isConnected = false;
     }
   }
@@ -66,8 +66,7 @@ export class KafkaAdapter implements IKafkaAdapter {
       await this.consumer.subscribe({ topic, fromBeginning: true });
       
       await this.consumer.run({
-        eachMessage: async (payload: EachMessagePayload) => {
-          const { message } = payload;
+        eachMessage: async ({ message }: { message: { value: Buffer } }) => {
           if (message.value) {
             const value = JSON.parse(message.value.toString());
             await callback(value);
