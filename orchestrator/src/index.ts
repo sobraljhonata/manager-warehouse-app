@@ -15,11 +15,6 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.text());
 
-// MongoDB Connection
-mongoose.connect('mongodb://mongo:27017/ecommerce', {
-}).then(() => console.log('Connected to MongoDB'))
-  .catch(err => console.error('MongoDB connection error:', err));
-
 // Kafka Producer and Consumer
 const producer = KafkaProducer();
 producer.then(async (kafkaProducer) => {
